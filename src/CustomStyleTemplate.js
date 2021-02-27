@@ -30,10 +30,10 @@ Getting started:
 
 // Required style metadata
 const styleMetadata = {
-  name: 'The Blockness of Space',
-  description: `Space isn't empty. Any given fixed volume at any given moment varies from the next in content of matter, gas, radiation, temperature, pressure, and field effects. Equally various and unique are the blocks of Ethereum and their content.`,
+  name: '',
+  description: '',
   image: '',
-  creator_name: 'Cliff Hall',
+  creator_name: '',
   options: {
     mod1: 0.4,
     mod2: 0.1,
@@ -45,16 +45,21 @@ const styleMetadata = {
 
 export { styleMetadata };
 
-export default function CustomStyle({
+export default function CustomStyleTemplate({
   block,
   attributesRef,
-  mod1 = 0.75,
+
+  mod1 = 0.75, // Example: replace any number in the code with mod1, mod2, or color values
   mod2 = 0.25,
   mod3 = 0.4,
   color1 = '#4f83f1',
   background = '#ccc',
 }) {
   console.log(`rendering`);
+
+  // Props
+
+  //   const { mod1, mod2, mod3, color1 } = options;
 
   // Refs
   const shuffleBag = useRef();
@@ -67,34 +72,29 @@ export default function CustomStyle({
 
   // Update custom attributes related to style when the modifiers change
   useEffect(() => {
-        console.log('updating attributes...');
-        attributesRef.current = () => {
-          function properCase(me) {
-            return me.replace(/\w\S*/g, function (txt) {
-              return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
-            });
-          }
+    console.log('updating attributes...');
+    attributesRef.current = () => {
+      return {
+        // This is called when the final image is generated, when creator opens the Mint NFT modal.
+        // should return an object structured following opensea/enjin metadata spec for attributes/properties
+        // https://docs.opensea.io/docs/metadata-standards
+        // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1155.md#erc-1155-metadata-uri-json-schema
 
-          return {
-            attributes: hoistedValue.current
-                ? Object.keys(hoistedValue.current).map(key => {
-                  const trait_type = properCase(key);
-                  const value = hoistedValue.current[key];
-                  return (typeof value === 'string')
-                      ? {
-                        trait_type,
-                        value
-                      }
-                      : {
-                        display_type: 'number',
-                        trait_type,
-                        value
-                      }
-                })
-                : []
-          };
-        };
-      }, [hoistedValue, attributesRef]);
+        attributes: [
+          {
+            display_type: 'number',
+            trait_type: 'your trait here number',
+            value: hoistedValue.current, // using the hoisted value from within the draw() method, stored in the ref.
+          },
+
+          {
+            trait_type: 'your trait here text',
+            value: 'replace me',
+          },
+        ],
+      };
+    };
+  }, [hoistedValue, attributesRef]);
 
   // Handle correct scaling of scene as canvas is resized, and when generating upscaled version.
   useEffect(() => {
@@ -130,18 +130,9 @@ export default function CustomStyle({
       return Math.floor(255 * shuffleBag.current.random());
     }
 
-    hoistedValue.current = {
-        magic: 10,
-        charm: 5,
-        luck: 3,
-        deepness: "Abiding",
-        calm: "Approaching",
-        vengeance: "Ultimate"
-    };
-
+    hoistedValue.current = 42;
     return [color, scale, tori];
-
-    }, [block]);
+  }, [block]);
 
   // Render the scene
   return (
