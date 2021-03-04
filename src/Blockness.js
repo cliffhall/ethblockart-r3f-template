@@ -130,7 +130,7 @@ export default function CustomStyle({
       setAttribs(custom);
     }
 
-  }, [analysis, mod1, mod2, mod3, color1, color2, color3, attributesRef]);
+  }, [analysis, mod1, mod2, mod3, color1, color2, color3, background, attributesRef]);
 
   // Generate scene content when the attributes change
   const content = useMemo(() => {
