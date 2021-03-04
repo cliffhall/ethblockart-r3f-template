@@ -25,16 +25,16 @@ const styleMetadata = {
 export { styleMetadata };
 
 export default function CustomStyle({
-                                      block,
-                                      attributesRef,
-                                      mod1,
-                                      mod2,
-                                      mod3,
-                                      color1,
-                                      color2,
-                                      color3,
-                                      background,
-                                    }) {
+    block,
+    attributesRef,
+    mod1,
+    mod2,
+    mod3,
+    color1,
+    color2,
+    color3,
+    background,
+  }) {
   console.log(`rendering`);
 
   // Local state
@@ -87,8 +87,8 @@ export default function CustomStyle({
           .highest.nonce
           .sub(analysis.txStats.average.gasPrice)
           .lt(analysis.txStats.average.gasPrice.sub(analysis.txStats.lowest.gasPrice))
-          ? "Vengeance"
-          : "Calm";
+              ? "Vengeance"
+              : "Calm";
 
       const deepness = (twister.random() / 100) *  100;
 
@@ -157,7 +157,7 @@ export default function CustomStyle({
                   </group>
               );
             })}
-          </group>
+            </group>
           : <></>
   );
 }

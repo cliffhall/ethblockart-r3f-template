@@ -1,7 +1,7 @@
 import ReactDOM from 'react-dom';
 import React, { useRef, useState, useEffect } from 'react';
 import blocks from './blocks';
-import CustomStyle, { styleMetadata } from './CustomStyle';
+import Blockness, { styleMetadata } from './Blockness';
 import { Canvas } from 'react-three-fiber';
 import { proxy, useProxy } from 'valtio';
 import Sidebar from './components/Sidebar';
@@ -76,7 +76,7 @@ function App() {
               height: '100%',
             }}
           >
-            <CustomStyle
+            <Blockness
               block={blocks[snap.blockNumber]}
               attributesRef={attributesRef}
               {...snap.options}
