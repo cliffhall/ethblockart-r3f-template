@@ -8,7 +8,7 @@ import { BigNumber } from "ethers";
 // Required style metadata
 const styleMetadata = {
   name: 'The Blockness of Space',
-  description: `Space isn't empty. Any given fixed volume at any given moment varies from the next in content of matter, gas, radiation, temperature, pressure, and field effects. Equally various and unique are the blocks of Ethereum.`,
+  description: `Space isn't empty. Any fixed volume at any given moment varies from the next in content of matter, gas, radiation, temperature, pressure, and field effects. Equally various and unique are the blocks of Ethereum.`,
   image: '',
   creator_name: 'Cliff Hall',
   options: {
@@ -21,26 +21,31 @@ const styleMetadata = {
     background: '#000',
   },
 };
-
 export { styleMetadata };
 
+// Get a fresh, seeded MersenneTwist instance for the given block
+function getTwister(block) {
+  const { hash } = block;
+  const seed = parseInt(hash.slice(0, 16), 16);
+  return new MersenneTwist(seed);
+}
+
 export default function CustomStyle({
-                                      block,
-                                      attributesRef,
-                                      mod1,
-                                      mod2,
-                                      mod3,
-                                      color1,
-                                      color2,
-                                      color3,
-                                      background,
-                                    }) {
+    block,
+    attributesRef,
+    mod1,
+    mod2,
+    mod3,
+    color1,
+    color2,
+    color3,
+    background,
+  }) {
   console.log(`rendering`);
 
   // Local state
   const [analysis, setAnalysis] = useState();
   const [attribs, setAttribs] = useState();
-  //const [content, setContent] = useState();
 
   // Refs
   const group = useRef();
@@ -76,32 +81,24 @@ export default function CustomStyle({
 
     if (!!analysis) {
       console.log('updating attributes...');
-      const { hash } = analysis.block;
-      const seed = parseInt(hash.slice(0, 16), 16);
-      const twister = new MersenneTwist(seed);
+      const twister = getTwister(analysis.block);
 
-      const rand255 = () => Math.floor(255 * twister.random());
-
+      // Create the custom attributes
+      const charm = mod1 / 10;
+      const luck = mod3 * 12
+      const deepness = (twister.random() / 100) *  100;
+      const magic = (mod2 + 0.001) * twister.random() * 500;
       const force = analysis
           .txStats
           .highest.nonce
           .sub(analysis.txStats.average.gasPrice)
           .lt(analysis.txStats.average.gasPrice.sub(analysis.txStats.lowest.gasPrice))
-          ? "Vengeance"
-          : "Calm";
+              ? "Vengeance"
+              : "Calm";
+      const glow = Color([Color(color1).color[0], Color(color2).color[1], Color(color3).color[2]]).hex();
+      const custom = { magic, charm, luck, deepness, force, glow };
 
-      const deepness = (twister.random() / 100) *  100;
-
-      const custom = {
-        magic: (mod2 + 0.001) * twister.random() * 500,
-        charm: mod1 / 10,
-        luck: mod3 * 12,
-        deepness,
-        force,
-        glow: Color([rand255(), rand255(), rand255()]).hex()
-      }
-
-      // Set attributesRef which container will read to get the custom attribute metadata
+      // Update the custom attribute metadata
       attributesRef.current = () => {
         function properCase(me) {
           return me.replace(/\w\S*/g, function (txt) {
@@ -128,17 +125,21 @@ export default function CustomStyle({
               : []
         }
       };
-      setAttribs(custom);
 
+      // Set the attribs and force re-render
+      setAttribs(custom);
     }
 
-  }, [analysis, mod1, mod2, mod3]);
+  }, [analysis, mod1, mod2, mod3, color1, color2, color3, attributesRef]);
 
+  // Generate scene content when the attributes change
   const content = useMemo(() => {
     return (!!attribs && !!analysis)
         ? new Content(analysis, attribs)
         : undefined
-  }, [attribs, analysis]);
+
+  // eslint-disable-next-line
+  }, [attribs]);
 
 
   // Render the scene
@@ -157,23 +158,17 @@ export default function CustomStyle({
                   </group>
               );
             })}
-          </group>
+            </group>
           : <></>
   );
 }
 
 class Content {
-  constructor(ba, attr) {
-
-    // Create shuffle bag
-    console.log(`shuffling..`);
-    const { hash } = ba.block;
-    const seed = parseInt(hash.slice(0, 16), 16);
-    const twister = new MersenneTwist(seed);
+  constructor(analysis, attr) {
 
     console.log(`creating content...`);
-    console.log(`creating content...`);
-    this.tori = ba.txs.map((tx, i) => {
+    const twister = getTwister(analysis.block);
+    this.tori = analysis.txs.map((tx, i) => {
       const mul = 1.5;
       const flip = i % 2 ? -1 : 1;
       const flip2 = i % 3 ? -1 : 1;
