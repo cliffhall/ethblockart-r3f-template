@@ -5,6 +5,8 @@ import { Sphere } from '@react-three/drei';
 import Color from 'color';
 import { BigNumber } from "ethers";
 
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+
 // Required style metadata
 const styleMetadata = {
   name: 'The Blockness of Space',
@@ -15,7 +17,7 @@ const styleMetadata = {
     mod1: 0.65,
     mod2: 0.1,
     mod3: 0.4,
-    color1: '#4f83f1',
+    color1: '#f7f022',
     color2: '#aa0909',
     color3: '#45cc66',
     background: '#000',
@@ -46,7 +48,7 @@ export default function CustomStyle({
   // Local state
   const [analysis, setAnalysis] = useState();
   const [attribs, setAttribs] = useState();
-  const [mods, setMods] = useState();
+  const [settings, setSettings] = useState();
 
   // Refs
   const group = useRef();
@@ -61,14 +63,14 @@ export default function CustomStyle({
     let DEFAULT_SIZE = 500;
     let DIM = Math.min(width, height);
     let M = DIM / DEFAULT_SIZE;
-    camera.zoom = M * 200;
+    camera.zoom = M * 100;
     camera.updateProjectionMatrix();
   }, [camera, width, height]);
 
-  // Update the mods group, when a mod changes
+  // Update the settings group, when a mod changes
   useEffect(() => {
-    setMods({mod1, mod2, mod3, colors:[color1, color2, color3], background});
-  }, [mod1, mod2, mod3, color1, color2, color3, background, setMods])
+    setSettings({mods:[mod1, mod2, mod3], colors:[color1, color2, color3, background]});
+  }, [mod1, mod2, mod3, color1, color2, color3, background, setSettings])
 
   // Analyze block when it changes
   useEffect( () => {
@@ -82,7 +84,7 @@ export default function CustomStyle({
 
   },[block]);
 
-  // Compute custom style attributes when block analysis is complete or mods change
+  // Compute custom style attributes when block analysis is complete or settings change
   useEffect( () => {
 
     if (!!analysis) {
@@ -90,10 +92,10 @@ export default function CustomStyle({
       const twister = getTwister(analysis.block);
 
       // Create the custom attributes
-      const charm = mods.mod1 / 10;
-      const luck = mods.mod3 * 12
+      const charm = settings.mods[0] / 10;
+      const luck = settings.mods[2] * 12
       const deepness = (twister.random() / 100) *  100;
-      const magic = (mods.mod2 + 0.001) * twister.random() * 500;
+      const magic = (settings.mods[1] + 0.001) * twister.random() * 500;
       const force = analysis
           .txStats
           .highest.nonce
@@ -102,9 +104,9 @@ export default function CustomStyle({
               ? "Vengeance"
               : "Calm";
       const glow = Color([
-          Color(mods.color1).color[0],
-          Color(mods.color2).color[1],
-          Color(mods.color3).color[2]]
+          Color(settings.colors[0]).color[0],
+          Color(settings.colors[1]).color[1],
+          Color(settings.colors[2]).color[2]]
       ).hex();
       const custom = { magic, charm, luck, deepness, force, glow };
 
@@ -141,12 +143,12 @@ export default function CustomStyle({
     }
 
   // eslint-disable-next-line
-  }, [analysis, mods]);
+  }, [analysis, settings]);
 
   // Generate scene content when the attributes change
   const content = useMemo(() => {
     const c = (!!attribs && !!analysis)
-        ? new Content(analysis, attribs, mods)
+        ? new Content(analysis, attribs, settings)
         : undefined
     console.log(c);
     return c;
@@ -156,26 +158,52 @@ export default function CustomStyle({
   // Render the content
   const renderContent = () => {
     return (
-        <group ref={group} position={[-0, 0, 0]} rotation={[mod3, mod2, mod1]}>
-          <ambientLight intensity={1} color={mods.colors[0]} />
-          <pointLight intensity={1} color={attribs.glow} />
-          {content.payload.core.suns.map(sun => <Sphere radius={sun.radius} position={sun.position}/>)}
+        <group ref={group} position={[0, 0, 0]} rotation={[0,0,0]}>
+          <ambientLight color={settings.colors[0]} intensity={1} />
+          <pointLight color={attribs.glow} />
+          <group key='core' position={[0, 0, 0]}>
+            {content.payload.core.suns.map(
+                (sun,i) => <Sun key={`sun-${i}`}/>
+                )}
+          </group>
         </group>
     );
+
+    function Sun(sun) {
+      return (
+          <mesh position={sun.position}>
+            <sphereBufferGeometry
+                args={[
+                    sun.radius,
+                    sun.widthSegments,
+                    sun.heightSegments,
+                    sun.phiStart,
+                    sun.phiLength,
+                    sun.thetaStart,
+                    sun.thetaLength
+                ]}
+                attach="geometry"
+            />
+            <meshStandardMaterial attach="material" color={sun.color}/>
+          </mesh>
+      )
+    }
   }
 
   // Render the content if it exists, or an empty div otherwise
   return (
       !!content ? renderContent() : <></>
   );
+
 }
 
 class Content {
-  constructor(analysis, attribs, mods) {
+
+  constructor(analysis, attribs, settings) {
     console.log(`creating content...`);
     this.analysis = analysis;
     this.attribs = attribs;
-    this.mods = mods;
+    this.settings = settings;
     this.twister = getTwister(analysis.block);
     this.payload = this.createContent();
   }
@@ -212,14 +240,20 @@ class Content {
 
     let position = [0,0,0];
     return {
-      color: this.mods.colors[index],
+      color: this.settings.colors[index],
       position: [
-          position[0] + ((index + 1) * 20),
-          position[1] - ((index + 1) * 20),
-          position[2] + ((index + 1) * 20)
+          position[0] + (numSuns * this.randomInt(10)),
+          position[1] - (numSuns * this.randomInt(10)),
+          position[2] + (numSuns * this.randomInt(10))
         ],
-      radius: (index + 1) * 10,
-      intensity: 1/numSuns
+      radius: 15,
+      intensity: 1/numSuns,
+      widthSegments: 3,
+      heightSegments: 16,
+      phiStart: 1,
+      phiLength: 6.3,
+      thetaStart: 3,
+      thetaLength: 6.3
     }
   }
 

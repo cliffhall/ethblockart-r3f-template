@@ -46,7 +46,7 @@ export default function CustomStyle({
   // Local state
   const [analysis, setAnalysis] = useState();
   const [attribs, setAttribs] = useState();
-  const [mods, setMods] = useState();
+  const [settings, setSettings] = useState();
 
   // Refs
   const group = useRef();
@@ -67,8 +67,8 @@ export default function CustomStyle({
 
   // Update the mods group, when a mod changes
   useEffect(() => {
-    setMods({mod1, mod2, mod3, color1, color2, color3, background});
-  }, [mod1, mod2, mod3, color1, color2, color3, background, setMods])
+    setSettings({mods:[mod1, mod2, mod3], colors:[color1, color2, color3, background]});
+  }, [mod1, mod2, mod3, color1, color2, color3, background, setSettings])
 
   // Analyze block when it changes
   useEffect( () => {
@@ -82,7 +82,7 @@ export default function CustomStyle({
 
   },[block]);
 
-  // Compute custom style attributes once block analysis is complete
+  // Compute custom style attributes when block analysis is complete or settings change
   useEffect( () => {
 
     if (!!analysis) {
@@ -90,10 +90,10 @@ export default function CustomStyle({
       const twister = getTwister(analysis.block);
 
       // Create the custom attributes
-      const charm = mod1 / 10;
-      const luck = mod3 * 12
+      const charm = settings.mods[0] / 10;
+      const luck = settings.mods[2] * 12
       const deepness = (twister.random() / 100) *  100;
-      const magic = (mod2 + 0.001) * twister.random() * 500;
+      const magic = (settings.mods[1] + 0.001) * twister.random() * 500;
       const force = analysis
           .txStats
           .highest.nonce
@@ -101,7 +101,11 @@ export default function CustomStyle({
           .lt(analysis.txStats.average.gasPrice.sub(analysis.txStats.lowest.gasPrice))
               ? "Vengeance"
               : "Calm";
-      const glow = Color([Color(color1).color[0], Color(color2).color[1], Color(color3).color[2]]).hex();
+      const glow = Color([
+          Color(settings.colors[0]).color[0],
+          Color(settings.colors[1]).color[1],
+          Color(settings.colors[2]).color[2]]
+      ).hex();
       const custom = { magic, charm, luck, deepness, force, glow };
 
       // Update the custom attribute metadata
@@ -136,14 +140,16 @@ export default function CustomStyle({
       setAttribs(custom);
     }
 
-  }, [analysis, mods]);
+  // eslint-disable-next-line
+  }, [analysis, settings]);
 
   // Generate scene content when the attributes change
   const content = useMemo(() => {
-    return (!!attribs && !!analysis)
-        ? new Content(analysis, attribs, mods)
+    const c = (!!attribs && !!analysis)
+        ? new Content(analysis, attribs, settings)
         : undefined
-
+    console.log(c);
+    return c;
   // eslint-disable-next-line
   }, [attribs]);
 
@@ -151,7 +157,7 @@ export default function CustomStyle({
   // Render the content
   const renderContent = () => {
     return (
-        <group ref={group} position={[-0, 0, 0]} rotation={[0, mod2, 0]}>
+        <group ref={group} position={[-0, 0, 0]} rotation={[0, settings.mods[1], 0]}>
           <ambientLight intensity={1} color={attribs.glow} />
           {content.payload.map((sp, index) => {
             return (
@@ -176,12 +182,11 @@ export default function CustomStyle({
 }
 
 class Content {
-  constructor(analysis, attribs, mods) {
-
+  constructor(analysis, attribs, settings) {
     console.log(`creating content...`);
     this.analysis = analysis;
     this.attribs = attribs;
-    this.mods = mods;
+    this.settings = settings;
     this.twister = getTwister(analysis.block);
     this.payload = this.createContent();
 
