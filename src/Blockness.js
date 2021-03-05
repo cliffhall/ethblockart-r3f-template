@@ -1,11 +1,18 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { useThree } from 'react-three-fiber';
 import MersenneTwist from 'mersenne-twister';
-import { Sphere } from '@react-three/drei';
-import Color from 'color';
 import { BigNumber } from "ethers";
+import Color from 'color';
+import * as THREE from 'three';
+import { TorusKnot } from '@react-three/drei';
+import { extend, useThree, useFrame } from 'react-three-fiber'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
+import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass'
 
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer';
+extend({ EffectComposer, ShaderPass, RenderPass, UnrealBloomPass, FilmPass })
+
 
 // Required style metadata
 const styleMetadata = {
@@ -63,7 +70,10 @@ export default function CustomStyle({
     let DEFAULT_SIZE = 500;
     let DIM = Math.min(width, height);
     let M = DIM / DEFAULT_SIZE;
-    camera.zoom = M * 100;
+    camera.zoom = M * 10;
+    camera.lookAt(0,0,0);
+    camera.position.set(0,0,100)
+    console.log(camera.position)
     camera.updateProjectionMatrix();
   }, [camera, width, height]);
 
@@ -95,7 +105,7 @@ export default function CustomStyle({
       const charm = settings.mods[0] / 10;
       const luck = settings.mods[2] * 12
       const deepness = (twister.random() / 100) *  100;
-      const magic = (settings.mods[1] + 0.001) * twister.random() * 500;
+      const magic = (Math.ceil(settings.mods[1]+.001 * 3));
       const force = analysis
           .txStats
           .highest.nonce
@@ -155,36 +165,57 @@ export default function CustomStyle({
   // eslint-disable-next-line
   }, [attribs]);
 
+  function Effects({settings}) {
+    const composer = useRef()
+    const { scene, gl, size, camera } = useThree()
+    const aspect = useMemo(() => new THREE.Vector2(512, 512), [])
+    useEffect(() => void composer.current.setSize(size.width, size.height), [size])
+    useFrame(() => composer.current && composer.current.render(), 1)
+    return (
+        <effectComposer ref={composer} args={[gl]}>
+          <renderPass attachArray="passes" scene={scene} camera={camera} />
+          <unrealBloomPass
+              attachArray="passes"
+              args={[
+                  settings.mods[2] * 10,  //bloomStrength
+                  settings.mods[2]+settings.mods[1], //bloomRadius
+                  settings.mods[1], // bloomThreshold
+              ]}
+          />
+        </effectComposer>
+    )
+  }
+
   // Render the content
   const renderContent = () => {
     return (
         <group ref={group} position={[0, 0, 0]} rotation={[0,0,0]}>
           <ambientLight color={settings.colors[0]} intensity={1} />
-          <pointLight color={attribs.glow} />
+          <pointLight color={settings.colors[2]} position={[0, 0, 0]} />
           <group key='core' position={[0, 0, 0]}>
             {content.payload.core.suns.map(
-                (sun,i) => <Sun key={`sun-${i}`}/>
+                (sun,i) => <Sun key={`sun-${i}`} sun={sun}/>
                 )}
           </group>
+          <Effects settings={settings}/>
         </group>
     );
 
-    function Sun(sun) {
+    function Sun({sun}) {
+      console.log(sun);
       return (
           <mesh position={sun.position}>
-            <sphereBufferGeometry
-                args={[
-                    sun.radius,
-                    sun.widthSegments,
-                    sun.heightSegments,
-                    sun.phiStart,
-                    sun.phiLength,
-                    sun.thetaStart,
-                    sun.thetaLength
-                ]}
-                attach="geometry"
-            />
-            <meshStandardMaterial attach="material" color={sun.color}/>
+              <sphereBufferGeometry
+                  radius={sun.radius}
+                  widthSegments={sun.widthSegments}
+                  heightSegments={sun.heightSegments}
+                  phiStart={sun.phiStart}
+                  phiLength={sun.phiLength}
+                  thetaStart={sun.thetaStart}
+                  thetaLength={sun.thetaLength}
+                  attach="geometry"
+              />
+              <meshStandardMaterial attach="material" emissive={sun.color} emissiveIntensity={10}/>
           </mesh>
       )
     }
@@ -228,7 +259,8 @@ class Content {
 
   // A group with one or more suns and optionally a black hole
   core() {
-    const numSuns = this.randomInt(2) + 1;
+    const numSuns = Math.floor(this.attribs.magic);
+    console.log(`suns: ${numSuns}`)
     const suns = new Array(numSuns)
         .fill(0)
         .map((v,i) => this.sun(numSuns, i));
@@ -242,11 +274,11 @@ class Content {
     return {
       color: this.settings.colors[index],
       position: [
-          position[0] + (numSuns * this.randomInt(10)),
-          position[1] - (numSuns * this.randomInt(10)),
-          position[2] + (numSuns * this.randomInt(10))
+          position[0] + (numSuns * this.randomInt(2)),
+          position[1] - (numSuns * this.randomInt(2)),
+          position[2] + (numSuns * this.randomInt(2))
         ],
-      radius: 15,
+      radius: 1,
       intensity: 1/numSuns,
       widthSegments: 3,
       heightSegments: 16,

@@ -1,8 +1,8 @@
 import ReactDOM from 'react-dom';
 import React, { useRef, useState, useEffect } from 'react';
 import blocks from './blocks';
-//import CustomStyle, { styleMetadata } from './Blockness';
-import CustomStyle, { styleMetadata } from './CustomStyle';
+import CustomStyle, { styleMetadata } from './Blockness';
+//import CustomStyle, { styleMetadata } from './CustomStyle';
 import { Canvas } from 'react-three-fiber';
 import { proxy, useProxy } from 'valtio';
 import Sidebar from './components/Sidebar';
