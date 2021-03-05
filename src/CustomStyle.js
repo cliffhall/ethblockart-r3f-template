@@ -46,6 +46,7 @@ export default function CustomStyle({
   // Local state
   const [analysis, setAnalysis] = useState();
   const [attribs, setAttribs] = useState();
+  const [mods, setMods] = useState();
 
   // Refs
   const group = useRef();
@@ -63,6 +64,11 @@ export default function CustomStyle({
     camera.zoom = M * 200;
     camera.updateProjectionMatrix();
   }, [camera, width, height]);
+
+  // Update the mods group, when a mod changes
+  useEffect(() => {
+    setMods({mod1, mod2, mod3, color1, color2, color3, background});
+  }, [mod1, mod2, mod3, color1, color2, color3, background, setMods])
 
   // Analyze block when it changes
   useEffect( () => {
@@ -130,53 +136,67 @@ export default function CustomStyle({
       setAttribs(custom);
     }
 
-  }, [analysis, mod1, mod2, mod3, color1, color2, color3, background, attributesRef]);
+  }, [analysis, mods]);
 
   // Generate scene content when the attributes change
   const content = useMemo(() => {
     return (!!attribs && !!analysis)
-        ? new Content(analysis, attribs)
+        ? new Content(analysis, attribs, mods)
         : undefined
 
   // eslint-disable-next-line
   }, [attribs]);
 
 
-  // Render the scene
+  // Render the content
+  const renderContent = () => {
+    return (
+        <group ref={group} position={[-0, 0, 0]} rotation={[0, mod2, 0]}>
+          <ambientLight intensity={1} color={attribs.glow} />
+          {content.payload.map((sp, index) => {
+            return (
+                <group key={index} position={sp}>
+                  <TorusKnot
+                      args={[attribs.deepness, attribs.charm, attribs.magic, attribs.luck]}
+                  >
+                    <meshNormalMaterial attach="material" />
+                  </TorusKnot>
+                </group>
+            );
+          })}
+        </group>
+    );
+  }
+
+  // Render the content if it exists, or an empty div otherwise
   return (
-      !!content
-          ? <group ref={group} position={[-0, 0, 0]} rotation={[0, mod2, 0]}>
-            <ambientLight intensity={1} color={attribs.glow} />
-            {content.tori.map((sp, index) => {
-              return (
-                  <group key={index} position={sp}>
-                    <TorusKnot
-                        args={[attribs.deepness, attribs.charm, attribs.magic, attribs.luck]}
-                    >
-                      <meshNormalMaterial attach="material" />
-                    </TorusKnot>
-                  </group>
-              );
-            })}
-            </group>
-          : <></>
+      !!content ? renderContent() : <></>
   );
+
 }
 
 class Content {
-  constructor(analysis, attr) {
+  constructor(analysis, attribs, mods) {
 
     console.log(`creating content...`);
-    const twister = getTwister(analysis.block);
-    this.tori = analysis.txs.map((tx, i) => {
+    this.analysis = analysis;
+    this.attribs = attribs;
+    this.mods = mods;
+    this.twister = getTwister(analysis.block);
+    this.payload = this.createContent();
+
+  }
+
+  createContent() {
+    return this.analysis.txs.map((tx, i) => {
       const mul = 1.5;
       const flip = i % 2 ? -1 : 1;
       const flip2 = i % 3 ? -1 : 1;
       const flip3 = i % 4 ? -1 : 1;
       return [
-        twister.random() * mul * flip,
-        twister.random() * mul * flip2,
-        twister.random() * mul * flip3,
+        this.twister.random() * mul * flip,
+        this.twister.random() * mul * flip2,
+        this.twister.random() * mul * flip3,
       ];
     });
   }

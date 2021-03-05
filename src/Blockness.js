@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { useThree } from 'react-three-fiber';
 import MersenneTwist from 'mersenne-twister';
-import { TorusKnot } from '@react-three/drei';
+import { Sphere } from '@react-three/drei';
 import Color from 'color';
 import { BigNumber } from "ethers";
 
@@ -46,6 +46,7 @@ export default function CustomStyle({
   // Local state
   const [analysis, setAnalysis] = useState();
   const [attribs, setAttribs] = useState();
+  const [mods, setMods] = useState();
 
   // Refs
   const group = useRef();
@@ -64,6 +65,11 @@ export default function CustomStyle({
     camera.updateProjectionMatrix();
   }, [camera, width, height]);
 
+  // Update the mods group, when a mod changes
+  useEffect(() => {
+    setMods({mod1, mod2, mod3, colors:[color1, color2, color3], background});
+  }, [mod1, mod2, mod3, color1, color2, color3, background, setMods])
+
   // Analyze block when it changes
   useEffect( () => {
 
@@ -76,7 +82,7 @@ export default function CustomStyle({
 
   },[block]);
 
-  // Compute custom style attributes once block analysis is complete
+  // Compute custom style attributes when block analysis is complete or mods change
   useEffect( () => {
 
     if (!!analysis) {
@@ -84,10 +90,10 @@ export default function CustomStyle({
       const twister = getTwister(analysis.block);
 
       // Create the custom attributes
-      const charm = mod1 / 10;
-      const luck = mod3 * 12
+      const charm = mods.mod1 / 10;
+      const luck = mods.mod3 * 12
       const deepness = (twister.random() / 100) *  100;
-      const magic = (mod2 + 0.001) * twister.random() * 500;
+      const magic = (mods.mod2 + 0.001) * twister.random() * 500;
       const force = analysis
           .txStats
           .highest.nonce
@@ -95,7 +101,11 @@ export default function CustomStyle({
           .lt(analysis.txStats.average.gasPrice.sub(analysis.txStats.lowest.gasPrice))
               ? "Vengeance"
               : "Calm";
-      const glow = Color([Color(color1).color[0], Color(color2).color[1], Color(color3).color[2]]).hex();
+      const glow = Color([
+          Color(mods.color1).color[0],
+          Color(mods.color2).color[1],
+          Color(mods.color3).color[2]]
+      ).hex();
       const custom = { magic, charm, luck, deepness, force, glow };
 
       // Update the custom attribute metadata
@@ -130,57 +140,141 @@ export default function CustomStyle({
       setAttribs(custom);
     }
 
-  }, [analysis, mod1, mod2, mod3, color1, color2, color3, background, attributesRef]);
+  // eslint-disable-next-line
+  }, [analysis, mods]);
 
   // Generate scene content when the attributes change
   const content = useMemo(() => {
-    return (!!attribs && !!analysis)
-        ? new Content(analysis, attribs)
+    const c = (!!attribs && !!analysis)
+        ? new Content(analysis, attribs, mods)
         : undefined
-
+    console.log(c);
+    return c;
   // eslint-disable-next-line
   }, [attribs]);
 
+  // Render the content
+  const renderContent = () => {
+    return (
+        <group ref={group} position={[-0, 0, 0]} rotation={[mod3, mod2, mod1]}>
+          <ambientLight intensity={1} color={mods.colors[0]} />
+          <pointLight intensity={1} color={attribs.glow} />
+          {content.payload.core.suns.map(sun => <Sphere radius={sun.radius} position={sun.position}/>)}
+        </group>
+    );
+  }
 
-  // Render the scene
+  // Render the content if it exists, or an empty div otherwise
   return (
-      !!content
-          ? <group ref={group} position={[-0, 0, 0]} rotation={[0, mod2, 0]}>
-            <ambientLight intensity={1} color={attribs.glow} />
-            {content.tori.map((sp, index) => {
-              return (
-                  <group key={index} position={sp}>
-                    <TorusKnot
-                        args={[attribs.deepness, attribs.charm, attribs.magic, attribs.luck]}
-                    >
-                      <meshNormalMaterial attach="material" />
-                    </TorusKnot>
-                  </group>
-              );
-            })}
-            </group>
-          : <></>
+      !!content ? renderContent() : <></>
   );
 }
 
 class Content {
-  constructor(analysis, attr) {
-
+  constructor(analysis, attribs, mods) {
     console.log(`creating content...`);
-    const twister = getTwister(analysis.block);
-    this.tori = analysis.txs.map((tx, i) => {
-      const mul = 1.5;
-      const flip = i % 2 ? -1 : 1;
-      const flip2 = i % 3 ? -1 : 1;
-      const flip3 = i % 4 ? -1 : 1;
-      return [
-        twister.random() * mul * flip,
-        twister.random() * mul * flip2,
-        twister.random() * mul * flip3,
-      ];
-    });
+    this.analysis = analysis;
+    this.attribs = attribs;
+    this.mods = mods;
+    this.twister = getTwister(analysis.block);
+    this.payload = this.createContent();
+  }
+
+  createContent() {
+    const core = this.core();
+    const planets = this.planets(core);
+    const belt = this.belt(core);
+    const cloud = this.cloud(core);
+    const camera = this.camera(core);
+
+    const system = {
+      core,
+      planets,
+      belt,
+      cloud,
+      camera
+    }
+
+    return system;
+  }
+
+  // A group with one or more suns and optionally a black hole
+  core() {
+    const numSuns = this.randomInt(2) + 1;
+    const suns = new Array(numSuns)
+        .fill(0)
+        .map((v,i) => this.sun(numSuns, i));
+    return { suns };
+  }
+
+  // A sun
+  sun(numSuns, index) {
+
+    let position = [0,0,0];
+    return {
+      color: this.mods.colors[index],
+      position: [
+          position[0] + ((index + 1) * 20),
+          position[1] - ((index + 1) * 20),
+          position[2] + ((index + 1) * 20)
+        ],
+      radius: (index + 1) * 10,
+      intensity: 1/numSuns
+    }
+  }
+
+  // A sucking black hole with a unique position relative to other bodies in the core
+  blackHole(core) {
+
+  }
+
+  // A group containing the planets and their ring and moon systems approriate for the core
+  planets(core) {
+
+  }
+
+  // A group with one planet and some number of moons and/or rings based on its size
+  planet() {
+
+  }
+
+  // A moon with the proper proportions for the planet's size
+  moon(planet) {
+
+  }
+
+  // A ring with proper proportions for the planet's size
+  ring(planet) {
+
+  }
+
+  belt(system) {
+
+  }
+
+  cloud(system){
+
+  }
+
+  asteroid(belt) {
+
+  }
+
+  dust(belt) {
+
+  }
+
+  // TODO figure out where to position and how to adjust the camera
+  camera() {
+
+  }
+
+  // Get a random integer between 0 and max
+  randomInt(max) {
+    return Math.floor(this.twister.random() * Math.floor(max));
   }
 }
+
 
 class BlockAnalysis {
 
