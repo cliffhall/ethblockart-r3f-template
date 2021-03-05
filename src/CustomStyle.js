@@ -1,9 +1,18 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { useThree } from 'react-three-fiber';
 import MersenneTwist from 'mersenne-twister';
-import { TorusKnot } from '@react-three/drei';
-import Color from 'color';
 import { BigNumber } from "ethers";
+import Color from 'color';
+import * as THREE from 'three';
+import { TorusKnot } from '@react-three/drei';
+import { extend, useThree, useFrame } from 'react-three-fiber'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
+import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass'
+
+extend({ EffectComposer, ShaderPass, RenderPass, UnrealBloomPass, FilmPass })
+
 
 // Required style metadata
 const styleMetadata = {
@@ -153,6 +162,19 @@ export default function CustomStyle({
   // eslint-disable-next-line
   }, [attribs]);
 
+  function Effects({...props}) {
+    const composer = useRef()
+    const { scene, gl, size, camera } = useThree()
+    const aspect = useMemo(() => new THREE.Vector2(512, 512), [])
+    useEffect(() => void composer.current.setSize(size.width, size.height), [size])
+    useFrame(() => composer.current && composer.current.render(), 1)
+    return (
+        <effectComposer ref={composer} args={[gl]}>
+          <renderPass attachArray="passes" scene={scene} camera={camera} />
+          <unrealBloomPass attachArray="passes" args={[aspect, 1, 1, 0]} />
+        </effectComposer>
+    )
+  }
 
   // Render the content
   const renderContent = () => {
@@ -170,6 +192,7 @@ export default function CustomStyle({
                 </group>
             );
           })}
+          <Effects/>
         </group>
     );
   }
